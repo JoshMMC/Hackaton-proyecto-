@@ -1,66 +1,27 @@
-async function runToDoList() {
-  console.log("🚀 Iniciando Lista de Tareas...");
+import * as anchor from "@coral-xyz/anchor";
 
-  // 1. Derivar la dirección de la PDA
-  const [listaPDA] = await anchor.web3.PublicKey.findProgramAddress(
-    [Buffer.from("lista_tareas"), pg.wallet.publicKey.toBuffer()],
-    pg.program.programId
-  );
+const provider = anchor.AnchorProvider.env();
+anchor.setProvider(provider);
 
-  try {
-    // 2. CREAR LISTA
-    const cuentaExistente = await pg.connection.getAccountInfo(listaPDA);
-    if (!cuentaExistente) {
-      console.log("📝 Creando nueva lista...");
-      await pg.program.methods
-        .crearLista("Mis Tareas de Solana")
-        .accounts({
-          owner: pg.wallet.publicKey,
-          lista: listaPDA,
-          systemProgram: anchor.web3.SystemProgram.programId,
-        })
-        .rpc();
-    } else {
-      console.log("✅ La cuenta de la lista ya existe.");
-    }
+const program = anchor.workspace.FightGame;
 
-    // 3. AGREGAR TAREA
-    console.log("➕ Agregando tarea: Estudiar Solana...");
-    await pg.program.methods
-      .agregarTarea("Estudiar Solana", 5) // descripcion, prioridad
-      .accounts({
-        owner: pg.wallet.publicKey,
-        lista: listaPDA,
-      })
-      .rpc();
+const game = anchor.web3.Keypair.generate();
 
-    // 4. VER TAREAS (Antes de actualizar)
-    let datos = await pg.program.account.listaTareas.fetch(listaPDA);
-    console.log("\n--- TAREAS RECIÉN AGREGADAS ---");
-    datos.tareas.forEach((t, i) => {
-      console.log(`${i + 1}. ${t.descripcion} | Prioridad: ${t.prioridad} | Hecho: ${t.completada}`);
-    });
+export const crearPartida = async () => {
+  await program.methods.crearPartida().accounts({
+    game: game.publicKey,
+    player: provider.wallet.publicKey,
+    systemProgram: anchor.web3.SystemProgram.programId,
+  }).signers([game]).rpc();
 
-    // 5. ACTUALIZAR TAREA
-    console.log("\n✏️ Actualizando tarea 'Estudiar Solana' a completada...");
-    await pg.program.methods
-      .actualizarTarea("Estudiar Solana", 10, true) // Aumentamos prioridad a 10 y completada a true
-      .accounts({
-        owner: pg.wallet.publicKey,
-        lista: listaPDA,
-      })
-      .rpc();
+  console.log("Partida creada:", game.publicKey.toBase58());
+};
 
-    // 6. VER TAREAS (Después de actualizar)
-    datos = await pg.program.account.listaTareas.fetch(listaPDA);
-    console.log("\n--- TAREAS ACTUALIZADAS ---");
-    datos.tareas.forEach((t, i) => {
-      console.log(`${i + 1}. ${t.descripcion} | Prioridad: ${t.prioridad} | Hecho: ${t.completada}`);
-    });
+export const atacar = async () => {
+  await program.methods.atacar().accounts({
+    game: game.publicKey,
+    player: provider.wallet.publicKey,
+  }).rpc();
 
-  } catch (error) {
-    console.error("❌ Error en la ejecución:", error);
-  }
-}
-
-runToDoList();
+  console.log("Ataque realizado");
+};
