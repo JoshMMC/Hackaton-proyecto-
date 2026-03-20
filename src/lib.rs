@@ -1,135 +1,135 @@
 use anchor_lang::prelude::*;
 
-// Este ID se actualizará solo cuando hagas clic en "Build" en Solana Playground
-declare_id!("HTHQ75sArk1GAmgnhp1qqbGFuMSVNNUbszRCVGLPzFHy");
+declare_id!("6bc1q5mlw63yd2u2cn0hs6jnzf2gljhr486u3dkgm2y831JcqXJ");
 
 #[program]
-pub mod lista_tareas {
+pub mod fight_game {
     use super::*;
 
-    // CREATE: Crear la lista por primera vez
-    pub fn crear_lista(ctx: Context<NuevaLista>, nombre_lista: String) -> Result<()> {
-        let owner = ctx.accounts.owner.key();
-        let tareas: Vec<Tarea> = Vec::new();
+    pub fn crear_partida(ctx: Context<CrearPartida>) -> Result<()> {
+        let game = &mut ctx.accounts.game;
 
-        ctx.accounts.lista.set_inner(ListaTareas {
-            owner,
-            nombre: nombre_lista.clone(), 
-            tareas,
-        });
+        game.player1 = *ctx.accounts.player.key;
+        game.player2 = Pubkey::default();
 
-        msg!("¡Lista de tareas '{}' creada con éxito!", nombre_lista);
+        game.health1 = 100;
+        game.health2 = 100;
+
+        game.energy1 = 50;
+        game.energy2 = 50;
+
+        game.turn = 1;
+        game.status = 0;
+
         Ok(())
     }
 
-    // CREATE: Agregar una nueva tarea a la lista
-    pub fn agregar_tarea(ctx: Context<GestionTareas>, descripcion: String, prioridad: u8) -> Result<()> {
-        // Validación: Asegurarnos de no superar el límite de 15 tareas definido en el #[max_len]
-        require!(ctx.accounts.lista.tareas.len() < 15, Errores::ListaLlena);
+    pub fn unirse_partida(ctx: Context<UnirsePartida>) -> Result<()> {
+        let game = &mut ctx.accounts.game;
+        require!(game.player2 == Pubkey::default(), ErrorCode::PartidaLlena);
 
-        let tarea = Tarea {
-            descripcion: descripcion.clone(), 
-            prioridad,
-            completada: false,
-        };
-
-        ctx.accounts.lista.tareas.push(tarea);
-        msg!("Tarea agregada: {}", descripcion);
+        game.player2 = *ctx.accounts.player.key;
         Ok(())
     }
 
-    // READ: Ver tareas en logs
-    pub fn ver_tareas(ctx: Context<GestionTareas>) -> Result<()> {
-        msg!("Lista: {}", ctx.accounts.lista.nombre);
-        for tarea in &ctx.accounts.lista.tareas {
-            let estado = if tarea.completada { "Completada" } else { "Pendiente" };
-            msg!("Tarea: {} | Prioridad: {} | Estado: {}", tarea.descripcion, tarea.prioridad, estado);
-        }
-        Ok(())
-    }
+    pub fn atacar(ctx: Context<Accion>) -> Result<()> {
+        let game = &mut ctx.accounts.game;
+        require!(game.status == 0, ErrorCode::JuegoTerminado);
 
-    // UPDATE: Marcar tarea como completada o cambiar prioridad
-    pub fn actualizar_tarea(ctx: Context<GestionTareas>, descripcion: String, nueva_prioridad: u8, completada: bool) -> Result<()> {
-        let tareas = &mut ctx.accounts.lista.tareas;
-        
-        for t in tareas.iter_mut() {
-            if t.descripcion == descripcion {
-                t.prioridad = nueva_prioridad;
-                t.completada = completada;
-                msg!("Tarea '{}' actualizada.", descripcion);
-                return Ok(());
-            }
-        }
-        Err(Errores::TareaNoEncontrada.into())
-    }
+        let player = ctx.accounts.player.key();
 
-    // DELETE: Eliminar una tarea
-    pub fn eliminar_tarea(ctx: Context<GestionTareas>, descripcion: String) -> Result<()> {
-        let tareas = &mut ctx.accounts.lista.tareas;
-        let index = tareas.iter().position(|t| t.descripcion == descripcion);
+        if game.turn == 1 {
+            require!(player == game.player1, ErrorCode::NoEsTuTurno);
 
-        if let Some(i) = index {
-            tareas.remove(i);
-            msg!("Tarea '{}' eliminada.", descripcion);
-            Ok(())
+            let damage = 10;
+
+            game.health2 = game.health2.saturating_sub(damage);
+            game.turn = 2;
         } else {
-            Err(Errores::TareaNoEncontrada.into())
+            require!(player == game.player2, ErrorCode::NoEsTuTurno);
+
+            let damage = 10;
+
+            game.health1 = game.health1.saturating_sub(damage);
+            game.turn = 1;
         }
+
+        // verificar ganador
+        if game.health1 == 0 || game.health2 == 0 {
+            game.status = 1;
+        }
+
+        Ok(())
     }
-}
 
-#[error_code]
-pub enum Errores {
-    #[msg("La tarea solicitada no existe en la lista.")]
-    TareaNoEncontrada,
-    #[msg("La lista ha alcanzado su capacidad máxima de 15 tareas.")]
-    ListaLlena,
-}
+    pub fn curarse(ctx: Context<Accion>) -> Result<()> {
+        let game = &mut ctx.accounts.game;
+        let player = ctx.accounts.player.key();
 
-#[account]
-#[derive(InitSpace)]
-pub struct ListaTareas {
-    pub owner: Pubkey,
-    #[max_len(40)]
-    pub nombre: String,
-    #[max_len(15)] // Capacidad para 15 tareas
-    pub tareas: Vec<Tarea>,
-}
+        if game.turn == 1 {
+            require!(player == game.player1, ErrorCode::NoEsTuTurno);
+            require!(game.energy1 >= 10, ErrorCode::SinEnergia);
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, PartialEq, Debug)]
-pub struct Tarea {
-    #[max_len(50)]
-    pub descripcion: String,
-    pub prioridad: u8,
-    pub completada: bool,
+            game.health1 += 10;
+            game.energy1 -= 10;
+            game.turn = 2;
+        } else {
+            require!(player == game.player2, ErrorCode::NoEsTuTurno);
+            require!(game.energy2 >= 10, ErrorCode::SinEnergia);
+
+            game.health2 += 10;
+            game.energy2 -= 10;
+            game.turn = 1;
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
-pub struct NuevaLista<'info> {
+pub struct CrearPartida<'info> {
+    #[account(init, payer = player, space = 8 + 100)]
+    pub game: Account<'info, Game>,
     #[account(mut)]
-    pub owner: Signer<'info>,
-
-    #[account(
-        init,
-        payer = owner,
-        space = ListaTareas::INIT_SPACE + 8,
-        seeds = [b"lista_tareas", owner.key().as_ref()],
-        bump
-    )]
-    pub lista: Account<'info, ListaTareas>,
-
+    pub player: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct GestionTareas<'info> {
-    pub owner: Signer<'info>,
+pub struct UnirsePartida<'info> {
+    #[account(mut)]
+    pub game: Account<'info, Game>,
+    #[account(mut)]
+    pub player: Signer<'info>,
+}
 
-    #[account(
-        mut,
-        seeds = [b"lista_tareas", owner.key().as_ref()],
-        bump,
-        has_one = owner
-    )]
-    pub lista: Account<'info, ListaTareas>,
+#[derive(Accounts)]
+pub struct Accion<'info> {
+    #[account(mut)]
+    pub game: Account<'info, Game>,
+    pub player: Signer<'info>,
+}
+
+#[account]
+pub struct Game {
+    pub player1: Pubkey,
+    pub player2: Pubkey,
+    pub health1: u8,
+    pub health2: u8,
+    pub energy1: u8,
+    pub energy2: u8,
+    pub turn: u8,
+    pub status: u8,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("No es tu turno")]
+    NoEsTuTurno,
+    #[msg("La partida ya tiene 2 jugadores")]
+    PartidaLlena,
+    #[msg("Juego terminado")]
+    JuegoTerminado,
+    #[msg("No tienes energia")]
+    SinEnergia,
 }
