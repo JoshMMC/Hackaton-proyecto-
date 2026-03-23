@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tic Tac Toe</title>
+
+<style>
+
+body{
+font-family:Arial;
+text-align:center;
+background:linear-gradient(135deg,#4facfe,#00f2fe);
+}
+
+h1{
+color:white;
+}
+
+#score{
+color:white;
+font-size:20px;
+margin-bottom:10px;
+}
+
+#message{
+color:white;
+font-size:22px;
+margin:10px;
+}
+
+#board{
+width:300px;
+margin:auto;
+display:grid;
+grid-template-columns:repeat(3,100px);
+}
+
+.cell{
+background:white;
+border:3px solid black;
+height:100px;
+font-size:50px;
+display:flex;
+align-items:center;
+justify-content:center;
+cursor:pointer;
+}
+
+button{
+margin-top:20px;
+padding:10px 20px;
+font-size:18px;
+border:none;
+background:black;
+color:white;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>Tic Tac Toe</h1>
+
+<div id="score">
+X: <span id="scoreX">0</span> | O: <span id="scoreO">0</span>
+</div>
+
+<div id="message"></div>
+
+<div id="board">
+
+<div class="cell" onclick="play(0)"></div>
+<div class="cell" onclick="play(1)"></div>
+<div class="cell" onclick="play(2)"></div>
+
+<div class="cell" onclick="play(3)"></div>
+<div class="cell" onclick="play(4)"></div>
+<div class="cell" onclick="play(5)"></div>
+
+<div class="cell" onclick="play(6)"></div>
+<div class="cell" onclick="play(7)"></div>
+<div class="cell" onclick="play(8)"></div>
+
+</div>
+
+<button onclick="resetGame()">Reiniciar</button>
+
+<script>
+
+let board=["","","","","","","","",""]
+let player="X"
+let active=true
+
+let scoreX=0
+let scoreO=0
+
+function play(i){
+
+if(board[i]!="" || !active) return
+
+board[i]=player
+
+document.getElementsByClassName("cell")[i].innerText=player
+
+checkWinner()
+
+player = player=="X" ? "O" : "X"
+
+}
+
+function checkWinner(){
+
+const wins=[
+[0,1,2],
+[3,4,5],
+[6,7,8],
+[0,3,6],
+[1,4,7],
+[2,5,8],
+[0,4,8],
+[2,4,6]
+]
+
+for(let w of wins){
+
+let a=w[0]
+let b=w[1]
+let c=w[2]
+
+if(board[a] && board[a]==board[b] && board[a]==board[c]){
+
+active=false
+
+document.getElementById("message").innerText="Ganó "+board[a]
+
+if(board[a]=="X"){
+scoreX++
+document.getElementById("scoreX").innerText=scoreX
+}else{
+scoreO++
+document.getElementById("scoreO").innerText=scoreO
+}
+
+return
+}
+
+}
+
+if(!board.includes("")){
+
+document.getElementById("message").innerText="Empate"
+active=false
+
+}
+
+}
+
+function resetGame(){
+
+board=["","","","","","","","",""]
+active=true
+player="X"
+
+document.getElementById("message").innerText=""
+
+let cells=document.getElementsByClassName("cell")
+
+for(let i=0;i<cells.length;i++){
+cells[i].innerText=""
+}
+
+}
+
+</script>
+
+</body>
+</html>
